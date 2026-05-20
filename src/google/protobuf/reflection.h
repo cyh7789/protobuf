@@ -112,6 +112,9 @@ class MutableRepeatedFieldRef<
     accessor_->template Set<T>(data_, index, value);
   }
   void Add(const T& value) const { accessor_->template Add<T>(data_, value); }
+  void AddSpan(const T* PROTOBUF_NONNULL values, int size) const {
+    accessor_->template AddSpan<T>(data_, values, size);
+  }
   void RemoveLast() const { accessor_->RemoveLast(data_); }
   void SwapElements(int index1, int index2) const {
     accessor_->SwapElements(data_, index1, index2);
@@ -332,6 +335,9 @@ class PROTOBUF_EXPORT RepeatedFieldAccessor {
                    const Value* PROTOBUF_NONNULL value) const = 0;
   virtual void Add(Field* PROTOBUF_NONNULL data,
                    const Value* PROTOBUF_NONNULL value) const = 0;
+  virtual void AddSpan(Field* PROTOBUF_NONNULL data,
+                       const Value* PROTOBUF_NONNULL values, int value_size,
+                       int size) const = 0;
   virtual void RemoveLast(Field* PROTOBUF_NONNULL data) const = 0;
   virtual void SwapElements(Field* PROTOBUF_NONNULL data, int index1,
                             int index2) const = 0;
@@ -405,6 +411,14 @@ class PROTOBUF_EXPORT RepeatedFieldAccessor {
     // we make a copy to get a temporary ActualType object and use it.
     ActualType tmp = static_cast<ActualType>(value);
     Add(data, static_cast<const Value*>(&tmp));
+  }
+
+  template <typename T, typename ValueType,
+            typename = std::enable_if_t<std::is_same_v<
+                typename RefTypeTraits<T>::AccessorValueType, ValueType>>>
+  void AddSpan(Field* PROTOBUF_NONNULL data,
+               const ValueType* PROTOBUF_NONNULL values, int size) const {
+    AddSpan(data, static_cast<const Value*>(values), sizeof(ValueType), size);
   }
 
  protected:

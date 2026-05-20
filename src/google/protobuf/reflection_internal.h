@@ -90,6 +90,17 @@ class RepeatedFieldWrapper : public RandomAccessRepeatedFieldAccessor {
   void Add(Field* data, const Value* value) const override {
     MutableRepeatedField(data)->Add(ConvertToT(value));
   }
+  void AddSpan(Field* data, const Value* values, int value_size,
+               int size) const override {
+    auto* repeated = MutableRepeatedField(data);
+    repeated->Reserve(repeated->size() + size);
+    const char* ptr = reinterpret_cast<const char*>(values);
+    for (int i = 0; i < size; ++i) {
+      repeated->AddAlreadyReserved(
+          ConvertToT(reinterpret_cast<const Value*>(ptr)));
+      ptr += value_size;
+    }
+  }
   void RemoveLast(Field* data) const override {
     MutableRepeatedField(data)->RemoveLast();
   }
@@ -150,6 +161,19 @@ class RepeatedPtrFieldWrapper : public RandomAccessRepeatedFieldAccessor {
     ConvertToT(value, allocated);
     MutableRepeatedField(data)->AddAllocated(allocated);
   }
+  void AddSpan(Field* data, const Value* values, int value_size,
+               int size) const override {
+    auto* repeated = MutableRepeatedField(data);
+    repeated->Reserve(repeated->size() + size);
+    const char* ptr = reinterpret_cast<const char*>(values);
+    for (int i = 0; i < size; ++i) {
+      const Value* value = reinterpret_cast<const Value*>(ptr);
+      T* allocated = New(value);
+      ConvertToT(value, allocated);
+      repeated->AddAllocated(allocated);
+      ptr += value_size;
+    }
+  }
   void RemoveLast(Field* data) const override {
     MutableRepeatedField(data)->RemoveLast();
   }
@@ -207,6 +231,15 @@ class RepeatedFieldPrimitiveAccessor final : public RepeatedFieldWrapper<T> {
     // for these accessors, here "other_mutator" must be "this".
     ABSL_CHECK(this == other_mutator);
     MutableRepeatedField(data)->Swap(MutableRepeatedField(other_data));
+  }
+  void AddSpan(Field* data, const Value* values, int value_size,
+               int size) const override {
+    if (value_size == sizeof(T)) {
+      const T* ptr = reinterpret_cast<const T*>(values);
+      MutableRepeatedField(data)->Add(ptr, ptr + size);
+    } else {
+      RepeatedFieldWrapper<T>::AddSpan(data, values, value_size, size);
+    }
   }
 
  protected:
