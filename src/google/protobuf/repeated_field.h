@@ -1013,11 +1013,12 @@ inline void* RepeatedField<Element>::AddUninitializedWithArena(
 
   bool is_soo = this->is_soo();
   const int old_size = size();
+  const int new_size = internal::CheckedAdd(old_size, 1);
   if (ABSL_PREDICT_FALSE(old_size == Capacity(is_soo))) {
-    Grow(arena_provider, is_soo, old_size, old_size + 1);
+    Grow(arena_provider, is_soo, old_size, new_size);
     is_soo = false;
   }
-  return unsafe_elements(is_soo) + ExchangeCurrentSize(old_size + 1);
+  return unsafe_elements(is_soo) + ExchangeCurrentSize(new_size);
 }
 
 template <typename Element>
@@ -1042,13 +1043,13 @@ inline auto RepeatedField<Element>::AddWithArena(ArenaProvider arena_provider,
   const int old_size = size();
   int capacity = Capacity(is_soo);
   Element* elem = unsafe_elements(is_soo);
+  const int new_size = internal::CheckedAdd(old_size, 1);
   if (ABSL_PREDICT_FALSE(old_size == capacity)) {
-    Grow(arena_provider, is_soo, old_size, old_size + 1);
+    Grow(arena_provider, is_soo, old_size, new_size);
     is_soo = false;
     capacity = Capacity(is_soo);
     elem = unsafe_elements(is_soo);
   }
-  int new_size = old_size + 1;
   void* p = elem + ExchangeCurrentSize(new_size);
   auto* result = ::new (p) Element(std::move(value));
 
@@ -1142,7 +1143,7 @@ inline void RepeatedField<Element>::AddInputIterator(
   while (begin != end) {
     if (ABSL_PREDICT_FALSE(first == last)) {
       size = first - elem;
-      GrowNoAnnotate(arena_provider, is_soo, size, size + 1);
+      GrowNoAnnotate(arena_provider, is_soo, size, internal::CheckedAdd(size, 1));
       is_soo = false;
       elem = unsafe_elements(is_soo);
       capacity = Capacity(is_soo);
